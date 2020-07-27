@@ -2,8 +2,6 @@
 using Ray2Mod.Components;
 using Ray2Mod.Game;
 using Ray2Mod.Game.Functions;
-using Ray2Mod.Game.Structs.AI;
-using Ray2Mod.Game.Structs.AI.BehaviourEnums;
 using Ray2Mod.Game.Structs.Input;
 using Ray2Mod.Game.Structs.LinkedLists;
 using Ray2Mod.Game.Structs.SPO;
@@ -11,26 +9,18 @@ using Ray2Mod.Game.Structs.States;
 using Ray2Mod.Structs.Input;
 using Ray2Mod.Utils;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
 /*
- * TODO: swimming
- * TODO: marshes sam crash
- * TODO: ledge pull up at ly doesn't work
- * TODO: rotate while standing still and shooting
- * TODO: targeting cage at end of bayou did an NaN
- * TODO: crash on mapmonde after foutch
- * TODO: animation for rotating
+ * TODO: ledge pull up after climbing doesn't work
  * TODO: walking backwards
 */
 
-namespace Ray2Mod_TankControls
-{
+namespace Ray2Mod_TankControls {
 
-    public unsafe class NewRay2Mod : IMod
+    public unsafe class TankControlsMod : IMod
     {
 
         RemoteInterface ri;
@@ -292,7 +282,6 @@ namespace Ray2Mod_TankControls
         {
             if (persoSpo == rayman && playTurnAnimation) {
                 int stateIndex = persoSpo->PersoData->GetStateIndex(state);
-                ri.Log("REE-man is changing to state "+stateIndex);
                 if (stateIndex == 0) {
                     return (char)0;
                 }
