@@ -5,7 +5,9 @@ using Ray2Mod.Game.Functions;
 using Ray2Mod.Game.Structs.AI;
 using Ray2Mod.Game.Structs.AI.BehaviourEnums;
 using Ray2Mod.Game.Structs.Input;
+using Ray2Mod.Game.Structs.LinkedLists;
 using Ray2Mod.Game.Structs.SPO;
+using Ray2Mod.Game.Structs.States;
 using Ray2Mod.Structs.Input;
 using Ray2Mod.Utils;
 using System;
@@ -42,21 +44,7 @@ namespace Ray2Mod_TankControls
         private float currentSpeed = 0;
         private SuperObject* rayman;
 
-        private bool turningIntelligence;
-        private bool doTurningLogic;
-
-        private int[] turnFromBehaviors = new int[]
-        {
-            (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_Attente,
-            (int)BehaviourEnums_YLT_RaymanModel_Normal.BNT_WalkRunComport,
-            (int)BehaviourEnums_YLT_RaymanModel_Normal.BNT_Basket,
-            (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_Desactive,
-        };
-
-        private int[] turnFromAnimations = new int[]
-        {
-            0,1,70,71,129,118
-        };
+        private bool playTurnAnimation = false;
 
         private short ReadInputFunction(int a1)
         {
@@ -72,8 +60,6 @@ namespace Ray2Mod_TankControls
             RaymanState state = RaymanState.Inactive;
             byte dsgVar16_value = 0;
             int* idleTimer = null;
-
-            doTurningLogic = false;
 
             if (spo->PersoData->GetModelName(w) == "YLT_RaymanModel") {
                 var dsgVars = spo->PersoData->GetDsgVarList();
@@ -169,8 +155,31 @@ namespace Ray2Mod_TankControls
             } else {
 
                 // Can be turning?
-                if (state==RaymanState.Idle) {
-                    doTurningLogic = true;
+                if (state == RaymanState.Idle) {
+
+                    var entryActions = InputStructure.GetInputStructure()->EntryActions;
+
+                    int[] bannedActions = new int[] { (int)EntryActionNames.Action_Tirer, (int)EntryActionNames.Action_Sauter };
+
+                    bool usingBannedAction = bannedActions.Where(a => entryActions[a]->IsValidated()).Count() > 0;
+
+                    if (!usingBannedAction) {
+
+                        if (rightAction->IsValidated() && !leftAction->IsValidated()) {
+                            if (rayman->PersoData->GetStateIndex() != 70) {
+                                rayman->PersoData->SetState(70);
+                            }
+                            playTurnAnimation = true;
+                        } else if (leftAction->IsValidated() && !rightAction->IsValidated()) {
+                            if (rayman->PersoData->GetStateIndex() != 71) {
+                                rayman->PersoData->SetState(71);
+                            }
+                            playTurnAnimation = true;
+                        } else {
+                            playTurnAnimation = false;
+                        }
+
+                    }
                 }
 
                 rotation *= Quaternion.CreateFromYawPitchRoll(0, 0, rotationSpeed); // Add rotation
@@ -279,9 +288,17 @@ namespace Ray2Mod_TankControls
             rayman->PersoData->dynam->DynamicsAsBigDynamics->matrixB.TransformationMatrix = newMatrix;
         }
 
-        private bool IsTurningAllowed(int state, int rule)
+        private char PLA_fn_bSetNewState(SuperObject* persoSpo, LinkedList.ListElement_HHP<State>* state, char force, char withEvents, char setAnim)
         {
-            return turnFromAnimations.Contains(state) && turnFromBehaviors.Contains(rule);
+            if (persoSpo == rayman && playTurnAnimation) {
+                int stateIndex = persoSpo->PersoData->GetStateIndex(state);
+                ri.Log("REE-man is changing to state "+stateIndex);
+                if (stateIndex == 0) {
+                    return (char)0;
+                }
+            }
+            
+            return EngineFunctions.PLA_fn_bSetNewState.Call(persoSpo, state, force, withEvents, setAnim);
         }
 
         unsafe void IMod.Run(RemoteInterface remoteInterface)
@@ -295,99 +312,8 @@ namespace Ray2Mod_TankControls
             hm = new HookManager();
             hm.CreateHook(EngineFunctions.fn_p_stReadAnalogJoystickMario, MarioFunction);
             hm.CreateHook(InputFunctions.VReadInput, ReadInputFunction);
-
-            GlobalActions.Engine += () => {
-
-                EntryAction* leftAction = *(EntryAction**)0x4B9B90;
-                EntryAction* rightAction = *(EntryAction**)0x4B9B94;
-                EntryAction* forwardAction = *(EntryAction**)0x4B9B88;
-                EntryAction* backAction = *(EntryAction**)0x4B9B8C;
-                EntryAction* shiftAction = *(EntryAction**)0x4B9B98;
-
-                if (rayman != null && doTurningLogic) {
-
-                    int stateIndex = rayman->PersoData->GetStateIndex();
-                    int behaviorIndex = rayman->PersoData->NormalBehaviourIndex;
-
-                    var entryActions = w.InputStructure->EntryActions;
-
-                    ri.Log("stateIndex: " + stateIndex);
-                    ri.Log("behaviorIndex: " + (BehaviourEnums_YLT_RaymanModel_Normal)behaviorIndex);
-                    // Turning animations
-
-                    if (IsTurningAllowed(stateIndex, behaviorIndex) &&
-                        !entryActions[(int)EntryActionNames.Action_Sauter]->IsValidated() &&
-                        !entryActions[(int)EntryActionNames.Action_Tirer]->IsValidated() &&
-                        !forwardAction->IsValidated()) {
-
-                        if (leftAction->IsValidated() && !rightAction->IsValidated()) {
-
-                            turningIntelligence = true;
-                            rayman->PersoData->NormalBehaviourIndex = (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_Desactive;
-                            if (stateIndex != 71) {
-                                rayman->PersoData->SetState(71, true, false, true);
-                                stateIndex = 71;
-                            }
-                        }
-                        if (rightAction->IsValidated() && !leftAction->IsValidated()) {
-
-                            turningIntelligence = true;
-                            rayman->PersoData->NormalBehaviourIndex = (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_Desactive;
-                            if (stateIndex != 70) {
-                                rayman->PersoData->SetState(70, true, false, true);
-                                stateIndex = 70;
-                            }
-                        }
-                    }
-
-                    if (turningIntelligence) {
-
-                        bool disruptTurning = false;
-
-                        EntryActionNames[] actionsThatDisruptTurns =
-                        {
-                            EntryActionNames.Action_Strafe,
-                            EntryActionNames.Action_Sauter,
-                            EntryActionNames.Action_Tirer,
-                        };
-
-                        foreach (EntryActionNames action in actionsThatDisruptTurns) {
-                            if (entryActions[(int)action]->IsValidated()) {
-                                disruptTurning = true;
-                            }
-                        }
-
-                        if (forwardAction->IsValidated()) {
-                            disruptTurning = true;
-                        }
-
-                        if (leftAction->IsInvalidated() && rightAction->IsInvalidated())
-                            disruptTurning = true;
-
-                        if (!IsTurningAllowed(stateIndex, behaviorIndex))
-                            disruptTurning = true;
-
-                        if (disruptTurning) {
-                            rayman->PersoData->SetState(0);
-                            
-                            if (entryActions[(int)EntryActionNames.Action_Sauter]->IsValidated()) {
-                                rayman->PersoData->NormalBehaviourIndex = (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_SautImpulsion;
-                            } else if (entryActions[(int)EntryActionNames.Action_Tirer]->IsValidated()) {
-                                rayman->PersoData->NormalBehaviourIndex = (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_Attente;
-                            } else if (forwardAction->IsValidated()) {
-                                rayman->PersoData->NormalBehaviourIndex = (int)BehaviourEnums_YLT_RaymanModel_Normal.BNT_WalkRunComport;
-                            } else {
-                                rayman->PersoData->NormalBehaviourIndex = (int)BehaviourEnums_YLT_RaymanModel_Normal.YLT_Attente;
-                            }
-
-                            turningIntelligence = false;
-                            doTurningLogic = false;
-                        }
-
-                    }
-                }
-
-            };
+            object p = hm.CreateHook(EngineFunctions.PLA_fn_bSetNewState, PLA_fn_bSetNewState);
         }
+
     }
 }
