@@ -2,11 +2,9 @@
 
 This mod attempts to restore/recreate the tank controls that were originally used in Rayman 2 while it was in development.
 
-![screenshot](https://cdn.discordapp.com/attachments/132499708533932032/909532791719469056/unknown.png)
-
 ## How to Use
 1. Go to the [releases page](
-https://github.com/rtsonneveld/Ray2Mod_RollBoostPracticeTool/releases/)
+https://github.com/rtsonneveld/Ray2Mod_TankControls/releases/)
 2. Download the latest release
 3. Unzip the file
 4. Launch run.bat
